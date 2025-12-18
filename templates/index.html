@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>VeriDex – Candidate Intelligence</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg1:#0f172a;
+      --bg2:#020617;
+      --card: rgba(15,23,42,0.92);
+      --card2: rgba(15,23,42,0.78);
+      --border: rgba(148,163,184,.22);
+      --muted:#94a3b8;
+      --text:#e5e7eb;
+      --good:#22c55e;
+      --warn:#fbbf24;
+      --bad:#fb7185;
+      --link:#93c5fd;
+    }
+
+    body {
+      background: radial-gradient(circle at top, var(--bg1) 0, var(--bg2) 55%, #000 100%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .card-dark {
+      background: var(--card);
+      border-radius: 18px;
+      border: 1px solid var(--border);
+      box-shadow: 0 18px 40px rgba(0,0,0,.55);
+    }
+
+    .card-soft {
+      background: var(--card2);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+    }
+
+    .muted { color: var(--muted); font-size: .92rem; }
+    .tiny { color: var(--muted); font-size: .82rem; }
+
+    .score-ring {
+      width: 128px;
+      height: 128px;
+      border-radius: 50%;
+      border: 7px solid var(--good);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 2.3rem;
+      font-weight: 800;
+      color: #bbf7d0;
+      box-shadow: 0 0 0 6px rgba(34,197,94,.08);
+      user-select: none;
+    }
+
+    .ring-badge {
+      display:inline-block;
+      padding:.35rem .7rem;
+      border-radius: 999px;
+      background: rgba(148,163,184,.14);
+      border: 1px solid rgba(148,163,184,.22);
+      font-size: .85rem;
+      color: var(--text);
+    }
+
+    .badge-lang {
+      background: rgba(99,102,241,.22);
+      color: #c7d2fe;
+      border: 1px solid rgba(99,102,241,.28);
+      font-weight: 600;
+    }
+
+    .pill {
+      background: rgba(148,163,184,.14);
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 999px;
+      padding: .22rem .6rem;
+      font-size: .8rem;
+      color: var(--text);
+      margin-right: .35rem;
+      margin-bottom: .35rem;
+      display:inline-flex;
+      gap:.35rem;
+      align-items:center;
+    }
+
+    .flag { color: #fecaca; font-size: .95rem; }
+    .signal { color: #86efac; font-size: .95rem; }
+
+    .loading {
+      text-align:center;
+      padding: 4rem 1rem;
+    }
+    .spinner-border { width: 3.2rem; height: 3.2rem; }
+
+    a.clean-link{
+      color: var(--link);
+      text-decoration: none;
+    }
+    a.clean-link:hover{
+      text-decoration: underline;
+    }
+
+    .section-title{
+      letter-spacing: .04em;
+      text-transform: uppercase;
+      font-size: .85rem;
+      color: var(--muted);
+      margin-bottom: .6rem;
+    }
+
+    .metric-list{
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+    .metric-list li{
+      margin-bottom: .25rem;
+      color: #cbd5e1;
+    }
+
+    .divider{
+      height:1px;
+      background: rgba(148,163,184,.18);
+      margin: 1rem 0;
+    }
+
+    .btn-primary{
+      background: linear-gradient(135deg, rgba(59,130,246,1), rgba(99,102,241,1));
+      border: none;
+    }
+
+    .form-control{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(148,163,184,.22);
+      color: var(--text);
+    }
+    .form-control::placeholder{ color: rgba(148,163,184,.7); }
+    .form-control:focus{
+      background: rgba(255,255,255,.08);
+      border-color: rgba(147,197,253,.6);
+      box-shadow: 0 0 0 .2rem rgba(59,130,246,.15);
+      color: var(--text);
+    }
+
+    .errbox{
+      border: 1px solid rgba(251,113,133,.35);
+      background: rgba(251,113,133,.08);
+      border-radius: 14px;
+      padding: .9rem 1rem;
+      color: #fecaca;
+    }
+
+    pre.jsonbox{
+      background: rgba(0,0,0,.25);
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 14px;
+      padding: 1rem;
+      color: #cbd5e1;
+      overflow:auto;
+      max-height: 420px;
+    }
+  </style>
+</head>
+
+<body class="py-4">
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="text-center mb-4">
+    <h1 class="fw-bold mb-1">VeriDex</h1>
+    <p class="muted mb-0">
+      Automated candidate intelligence across GitHub, portfolio, and LinkedIn.
+    </p>
+  </div>
+
+  <!-- FORM -->
+  <div class="card-dark p-4 mb-4">
+    <form id="scanForm" class="row g-3" enctype="multipart/form-data">
+      <div class="col-md-6">
+        <label class="form-label">GitHub Profile URL <span class="text-danger">*</span></label>
+        <input name="github" class="form-control"
+               placeholder="https://github.com/username"
+               required>
+        <div class="tiny mt-1">Required. Used for repo + code intelligence.</div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">Portfolio URL (optional)</label>
+        <input name="portfolio" class="form-control"
+               placeholder="https://yourname.dev or https://username.github.io">
+        <div class="tiny mt-1">Optional. Improves credibility when present + clear.</div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">LinkedIn Profile URL (optional)</label>
+        <input name="linkedin" class="form-control"
+               placeholder="https://www.linkedin.com/in/your-handle/">
+        <div class="tiny mt-1">LinkedIn URL is limited. PDF gives full analysis.</div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label">LinkedIn PDF (recommended)</label>
+        <input type="file" name="linkedin_pdf" class="form-control" accept=".pdf">
+        <div class="tiny mt-1">LinkedIn → More → “Save to PDF”. Upload that file.</div>
+      </div>
+
+      <div class="col-12 d-flex justify-content-between align-items-center">
+        <div class="tiny">
+          ⚡ Tip: Big repos can take a bit. The spinner is your friend.
+        </div>
+        <button class="btn btn-primary px-4" id="analyzeBtn">
+          Analyze
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ERROR BOX -->
+  <div id="errorBox" class="errbox d-none mb-4"></div>
+
+  <!-- LOADING STATE -->
+  <div id="loading" class="card-dark loading d-none mb-4">
+    <div class="spinner-border text-primary mb-3"></div>
+    <h5 class="mb-1">VeriDex is analyzing…</h5>
+    <p class="muted mb-0" id="loadingText">Inspecting GitHub repositories</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard" class="d-none">
+
+    <!-- HERO SUMMARY -->
+    <div class="card-dark p-4 mb-4 d-flex align-items-center justify-content-between flex-wrap gap-3">
+      <div style="max-width: 70ch;">
+        <div class="section-title">Recruiter summary</div>
+        <h4 id="headline" class="mb-2"></h4>
+        <p id="summary" class="muted mb-0"></p>
+
+        <div class="divider"></div>
+
+        <div class="d-flex flex-wrap gap-2">
+          <span class="ring-badge" id="metaUsername"></span>
+          <span class="ring-badge" id="metaAge"></span>
+          <span class="ring-badge" id="metaRepos"></span>
+          <span class="ring-badge" id="metaFollowers"></span>
+        </div>
+      </div>
+
+      <div class="text-center">
+        <div class="section-title mb-2">Overall credibility</div>
+        <div class="score-ring" id="overallScore">--</div>
+        <div class="tiny mt-2" id="scoreExplain">Score is explainable: code + presentation + risk signals.</div>
+      </div>
+    </div>
+
+    <!-- TOP PROJECTS -->
+    <div class="mb-4">
+      <div class="d-flex justify-content-between align-items-end flex-wrap gap-2">
+        <div>
+          <h5 class="mb-1">Top Projects</h5>
+          <div class="muted">Scores reflect volume, structure, tests, docs, and architectural signals.</div>
+        </div>
+        <div class="tiny">
+          Click a repo to verify the work.
+        </div>
+      </div>
+      <div class="row g-3 mt-1" id="repoCards"></div>
+    </div>
+
+    <!-- FLAGS & SIGNALS -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card-dark p-3 h-100">
+          <h6 class="mb-2">Red Flags</h6>
+          <ul id="redFlags" class="mb-0"></ul>
+          <div id="noFlags" class="muted d-none">No major red flags detected.</div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card-dark p-3 h-100">
+          <h6 class="mb-2">Growth Signals</h6>
+          <ul id="growthSignals" class="mb-0"></ul>
+          <div id="noSignals" class="muted d-none">No major positive signals detected yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PORTFOLIO + LINKEDIN -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <div class="card-dark p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="mb-1">Portfolio Analysis</h6>
+              <div class="muted">Presentation quality, clarity, proof, and recruiter friendliness.</div>
+            </div>
+            <div class="ring-badge">
+              Score: <strong id="portfolioScore">N/A</strong>/100
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">What VeriDex checked</div>
+          <div id="portfolioChecks" class="d-flex flex-wrap"></div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Notes</div>
+          <ul id="portfolioFlags" class="mb-0"></ul>
+          <div id="portfolioEmpty" class="muted d-none">No portfolio submitted.</div>
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <div class="card-dark p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start">
+            <div>
+              <h6 class="mb-1">LinkedIn Analysis</h6>
+              <div class="muted">PDF unlocks real signals: skills, certifications, education, structure.</div>
+            </div>
+            <div class="ring-badge">
+              Score: <strong id="linkedinScore">N/A</strong>/100
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <span class="ring-badge">Mode: <strong id="linkedinStatus">Not analyzed</strong></span>
+            <span class="ring-badge">Certifications: <strong id="linkedinCertCount">0</strong></span>
+            <span class="ring-badge">Skills: <strong id="linkedinSkillCount">0</strong></span>
+            <span class="ring-badge">Education: <strong id="linkedinEduCount">0</strong></span>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Top skills</div>
+          <div id="linkedinSkills" class="d-flex flex-wrap"></div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Certifications</div>
+          <ul id="linkedinCerts" class="mb-0"></ul>
+          <div id="linkedinCertsEmpty" class="muted d-none">No certifications detected.</div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Education</div>
+          <ul id="linkedinEducation" class="mb-0"></ul>
+          <div id="linkedinEduEmpty" class="muted d-none">No education entries detected.</div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">Languages</div>
+          <div id="linkedinLanguages" class="d-flex flex-wrap"></div>
+
+          <div class="divider"></div>
+
+          <div class="section-title">What’s missing</div>
+          <div id="linkedinMissing" class="muted">No missing sections reported.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPTIONAL: Raw JSON Toggle -->
+    <div class="card-dark p-3 mb-4">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h6 class="mb-0">Debug (optional)</h6>
+          <div class="muted">Toggle raw JSON for verification & development.</div>
+        </div>
+        <button class="btn btn-outline-light btn-sm" id="toggleJsonBtn" type="button">
+          Show JSON
+        </button>
+      </div>
+      <div id="jsonWrap" class="d-none mt-3">
+        <pre class="jsonbox" id="rawJson"></pre>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById("scanForm");
+  const dashboard = document.getElementById("dashboard");
+  const loading = document.getElementById("loading");
+  const analyzeBtn = document.getElementById("analyzeBtn");
+  const loadingText = document.getElementById("loadingText");
+  const errorBox = document.getElementById("errorBox");
+
+  const toggleJsonBtn = document.getElementById("toggleJsonBtn");
+  const jsonWrap = document.getElementById("jsonWrap");
+  const rawJson = document.getElementById("rawJson");
+
+  const steps = [
+    "Inspecting GitHub profile & repositories…",
+    "Analyzing code depth, architecture, and repo signals…",
+    "Evaluating portfolio clarity and recruiter usability…",
+    "Parsing LinkedIn PDF (skills, education, certifications)…",
+    "Generating an explainable credibility report…"
+  ];
+
+  toggleJsonBtn.addEventListener("click", () => {
+    jsonWrap.classList.toggle("d-none");
+    toggleJsonBtn.textContent = jsonWrap.classList.contains("d-none") ? "Show JSON" : "Hide JSON";
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    // reset UI states
+    errorBox.classList.add("d-none");
+    errorBox.textContent = "";
+
+    dashboard.classList.add("d-none");
+    loading.classList.remove("d-none");
+    analyzeBtn.disabled = true;
+
+    let step = 0;
+    const interval = setInterval(() => {
+      loadingText.textContent = steps[step % steps.length];
+      step++;
+    }, 1300);
+
+    try {
+      const res = await fetch("/", {
+        method: "POST",
+        body: new FormData(form)
+      });
+
+      clearInterval(interval);
+
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error || "Request failed.");
+      }
+
+      renderDashboard(data);
+
+    } catch (err) {
+      clearInterval(interval);
+      errorBox.textContent = `⚠️ ${err.message}`;
+      errorBox.classList.remove("d-none");
+    } finally {
+      loading.classList.add("d-none");
+      analyzeBtn.disabled = false;
+    }
+  });
+
+  // --------- helpers ----------
+  const safe = (v, fallback="N/A") => (v === undefined || v === null || v === "") ? fallback : v;
+
+  function setRing(score) {
+    const ring = document.getElementById("overallScore");
+    const num = Number(score);
+    ring.textContent = isNaN(num) ? "--" : num;
+
+    // adjust ring color by score
+    if (!isNaN(num)) {
+      if (num >= 80) ring.style.borderColor = "var(--good)";
+      else if (num >= 60) ring.style.borderColor = "var(--warn)";
+      else ring.style.borderColor = "var(--bad)";
+    }
+  }
+
+  function addListItems(ul, items, cssClass) {
+    ul.innerHTML = "";
+    if (!items || !items.length) return false;
+    items.forEach(x => {
+      const li = document.createElement("li");
+      li.className = cssClass || "";
+      li.textContent = x;
+      ul.appendChild(li);
+    });
+    return true;
+  }
+
+  function pill(text) {
+    return `<span class="pill">${text}</span>`;
+  }
+
+  function guessRepoExplanation(repo) {
+    const s = Number(repo.depth_score || 0);
+    const tests = Number(repo.test_files ?? 0);
+    const rq = Number(repo.readme_quality ?? 0);
+    const lines = Number(repo.metrics?.lines ?? 0);
+
+    if (s >= 90) return "High depth: strong structure and real-world signals.";
+    if (s >= 75) return "Good depth: solid structure, could use more tests/docs.";
+    if (s >= 60) return "Mid depth: functional project; architecture/testing may be light.";
+    if (lines > 400 && tests === 0) return "Lots of code, but no tests detected — credibility leak.";
+    if (rq === 0) return "Low documentation: README is weak/missing.";
+    return "Small-scale or limited structure — likely a learning repo or simple tool.";
+  }
+
+  function renderRepoCard(r) {
+    const lang = safe(r.dominant_language, "Unknown");
+    const url = r.html_url ? r.html_url : null;
+
+    // Handle metrics variations across versions
+    const lines = r.metrics?.lines ?? r.metrics?.lines_of_code ?? null;
+    const funcs = r.metrics?.functions ?? null;
+    const classes = r.metrics?.classes ?? null;
+    const imports = r.metrics?.imports ?? null;
+
+    const filesAnalyzed = r.code_files ?? r.python_files ?? 0;
+    const testFiles = (r.test_files !== undefined) ? r.test_files : null;
+    const readmeQ = (r.readme_quality !== undefined) ? r.readme_quality : null;
+
+    const why = guessRepoExplanation(r);
+
+    const metricLines = [];
+    metricLines.push(`<li>Files analyzed: ${filesAnalyzed}</li>`);
+    if (lines !== null) metricLines.push(`<li>Lines of code: ${lines}</li>`);
+    if (funcs !== null) metricLines.push(`<li>Functions: ${funcs}</li>`);
+    if (classes !== null) metricLines.push(`<li>Classes: ${classes}</li>`);
+    if (imports !== null) metricLines.push(`<li>Imports: ${imports}</li>`);
+    if (testFiles !== null) metricLines.push(`<li>Test files: ${testFiles}</li>`);
+    if (readmeQ !== null) metricLines.push(`<li>README quality: ${readmeQ}/10</li>`);
+
+    return `
+      <div class="col-lg-4 col-md-6">
+        <div class="card-dark p-3 h-100">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <h6 class="mb-1">${safe(r.name,"Unnamed repo")}</h6>
+              <span class="badge badge-lang">${lang}</span>
+            </div>
+            <div class="ring-badge">
+              Depth: <strong>${safe(r.depth_score,0)}</strong>/100
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <ul class="metric-list">
+            ${metricLines.join("")}
+          </ul>
+
+          <div class="divider"></div>
+
+          <div class="muted">${why}</div>
+
+          ${url ? `
+            <div class="mt-3">
+              <a class="clean-link" href="${url}" target="_blank" rel="noopener noreferrer">
+                View on GitHub →
+              </a>
+            </div>` : `
+            <div class="mt-3 tiny muted">Repo link unavailable.</div>
+          `}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderDashboard(data) {
+    const g = data.github || {};
+    const l = data.linkedin || {};
+    const p = data.portfolio || {};
+
+    // show dashboard
+    dashboard.classList.remove("d-none");
+
+    // Debug JSON
+    rawJson.textContent = JSON.stringify(data, null, 2);
+
+    // HERO
+    document.getElementById("headline").textContent = safe(g.dev_maturity, "Developer Profile Analysis");
+    document.getElementById("summary").textContent = safe(
+      g.summary,
+      "Explainable credibility scoring based on code quality, presentation, and risk signals."
+    );
+
+    setRing(g.credibility_score);
+
+    // Meta badges
+    document.getElementById("metaUsername").textContent = `Username: ${safe(g.username, "unknown")}`;
+    document.getElementById("metaAge").textContent = `Account age: ${safe(g.account_age, 0)} years`;
+    document.getElementById("metaRepos").textContent = `Repos: ${safe(g.repos, 0)}`;
+    document.getElementById("metaFollowers").textContent = `Followers: ${safe(g.followers, 0)}`;
+
+    // TOP PROJECTS
+    const repoCards = document.getElementById("repoCards");
+    repoCards.innerHTML = "";
+
+    const repos = g.code_intel?.repos || [];
+    if (!repos.length) {
+      repoCards.innerHTML = `
+        <div class="col-12">
+          <div class="card-dark p-3">
+            <div class="muted">No analyzable repositories were found (or API limits blocked access).</div>
+          </div>
+        </div>
+      `;
+    } else {
+      repos.slice(0,3).forEach(r => repoCards.innerHTML += renderRepoCard(r));
+    }
+
+    // RED FLAGS
+    const rf = document.getElementById("redFlags");
+    const hasFlags = addListItems(rf, g.flags || [], "flag");
+    document.getElementById("noFlags").classList.toggle("d-none", !!hasFlags);
+
+    // GROWTH SIGNALS (derive from outputs)
+    const gs = document.getElementById("growthSignals");
+    gs.innerHTML = "";
+
+    const signals = [];
+
+    if (Number(g.account_age || 0) >= 2) signals.push("Sustained GitHub activity");
+    if (Number(g.code_credibility || g.code_intel?.overall_depth_score || 0) >= 70) signals.push("Strong project depth");
+    if (Number(p.portfolio_score || 0) >= 60) signals.push("Clear portfolio presentation");
+
+    // LinkedIn positive signals
+    if (Number(l.linkedin_score || 0) >= 60) signals.push("LinkedIn profile is well-structured");
+    if ((l.certifications || l.certs || []).length >= 2) signals.push("Certifications present");
+
+    const hasSignals = addListItems(gs, signals, "signal");
+    document.getElementById("noSignals").classList.toggle("d-none", !!hasSignals);
+
+    // PORTFOLIO
+    document.getElementById("portfolioScore").textContent = safe(p.portfolio_score, "N/A");
+
+    const checksWrap = document.getElementById("portfolioChecks");
+    checksWrap.innerHTML = "";
+
+    // show checks even if empty — product clarity
+    const portfolioChecks = [];
+    if (p.url) portfolioChecks.push(`URL: ${p.url}`);
+    if (p.has_projects !== undefined) portfolioChecks.push(`Projects section: ${p.has_projects ? "Yes" : "No"}`);
+    if (p.has_contact !== undefined) portfolioChecks.push(`Contact info: ${p.has_contact ? "Yes" : "No"}`);
+    if (p.has_about !== undefined) portfolioChecks.push(`About section: ${p.has_about ? "Yes" : "No"}`);
+    if (p.has_case_studies !== undefined) portfolioChecks.push(`Case studies: ${p.has_case_studies ? "Yes" : "No"}`);
+    if (p.has_github_links !== undefined) portfolioChecks.push(`GitHub links: ${p.has_github_links ? "Yes" : "No"}`);
+
+    if (portfolioChecks.length === 0) {
+      checksWrap.innerHTML = `<span class="muted">No portfolio checks available yet.</span>`;
+    } else {
+      checksWrap.innerHTML = portfolioChecks.map(x => pill(x)).join("");
+    }
+
+    const pf = document.getElementById("portfolioFlags");
+    pf.innerHTML = "";
+    const portfolioEmpty = document.getElementById("portfolioEmpty");
+
+    if (!p || (!p.portfolio_score && !p.flags && !p.positive_signals && !p.url)) {
+      portfolioEmpty.classList.remove("d-none");
+    } else {
+      portfolioEmpty.classList.add("d-none");
+
+      const notes = [];
+      (p.flags || []).forEach(f => notes.push({type:"flag", text:f}));
+      (p.positive_signals || []).forEach(s => notes.push({type:"signal", text:s}));
+
+      if (!notes.length) {
+        pf.innerHTML = `<li class="muted">No portfolio notes reported.</li>`;
+      } else {
+        notes.forEach(n => {
+          const li = document.createElement("li");
+          li.className = (n.type === "flag") ? "flag" : "signal";
+          li.textContent = n.text;
+          pf.appendChild(li);
+        });
+      }
+    }
+
+    // LINKEDIN
+    document.getElementById("linkedinStatus").textContent = safe(l.mode, "Not analyzed");
+    document.getElementById("linkedinScore").textContent = safe(l.linkedin_score, "N/A");
+
+    // Skills / certs / edu / languages mapping (handle multiple backend key names)
+    const skills = l.skills || l.top_skills || [];
+    const certs = l.certifications || l.certs || [];
+    const education = l.education || l.education_entries || [];
+    const languages = l.languages || [];
+
+    document.getElementById("linkedinSkillCount").textContent = skills.length || 0;
+    document.getElementById("linkedinCertCount").textContent = certs.length || 0;
+    document.getElementById("linkedinEduCount").textContent = education.length || 0;
+
+    // Top skills pills
+    const skillsWrap = document.getElementById("linkedinSkills");
+    skillsWrap.innerHTML = "";
+    if (!skills.length) {
+      skillsWrap.innerHTML = `<span class="muted">No skills detected.</span>`;
+    } else {
+      skillsWrap.innerHTML = skills.slice(0,10).map(s => pill(s)).join("");
+    }
+
+    // Cert list
+    const certUl = document.getElementById("linkedinCerts");
+    certUl.innerHTML = "";
+    const certEmpty = document.getElementById("linkedinCertsEmpty");
+    if (!certs.length) {
+      certEmpty.classList.remove("d-none");
+    } else {
+      certEmpty.classList.add("d-none");
+      certs.slice(0,10).forEach(c => {
+        const li = document.createElement("li");
+        li.textContent = c;
+        certUl.appendChild(li);
+      });
+    }
+
+    // Education list
+    const eduUl = document.getElementById("linkedinEducation");
+    eduUl.innerHTML = "";
+    const eduEmpty = document.getElementById("linkedinEduEmpty");
+    if (!education.length) {
+      eduEmpty.classList.remove("d-none");
+    } else {
+      eduEmpty.classList.add("d-none");
+      education.slice(0,6).forEach(e => {
+        const li = document.createElement("li");
+        // allow either string or object
+        if (typeof e === "string") li.textContent = e;
+        else {
+          const school = e.school || e.institution || "School";
+          const degree = e.degree || e.program || "";
+          const years = e.years || e.dates || "";
+          li.textContent = [school, degree, years].filter(Boolean).join(" — ");
+        }
+        eduUl.appendChild(li);
+      });
+    }
+
+    // Languages pills
+    const langWrap = document.getElementById("linkedinLanguages");
+    langWrap.innerHTML = "";
+    if (!languages.length) {
+      langWrap.innerHTML = `<span class="muted">No languages detected.</span>`;
+    } else {
+      langWrap.innerHTML = languages.slice(0,10).map(x => pill(x)).join("");
+    }
+
+    // Missing sections
+    const missing = l.missing_sections || l.missing || [];
+    const missingBox = document.getElementById("linkedinMissing");
+    if (!missing.length) {
+      missingBox.textContent = "No missing sections reported.";
+    } else {
+      missingBox.textContent = "Missing: " + missing.join(", ");
+    }
+  }
+</script>
+
+</body>
+</html>
