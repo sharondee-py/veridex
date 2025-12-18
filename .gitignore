@@ -1,7 +1,16 @@
+# Environments
 .env
+.env.*
+.venv/
+venv/
+
+# Python
 __pycache__/
 *.pyc
+
+# PDFs & uploads
 *.pdf
-instance/
-venv/
-.env.*
+
+# OS junk
+.DS_Store
+
