@@ -1,5 +1,7 @@
 Flask
+gunicorn
 requests
 beautifulsoup4
 python-dotenv
 pypdf
+reportlab
