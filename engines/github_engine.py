@@ -10,10 +10,22 @@ from .portfolio_engine import PortfolioEngine
 
 load_dotenv()
 
-HEADERS = {
+API_HEADERS = {
     "User-Agent": "VeriDexBot/1.0",
-    "Authorization": f"token {os.getenv('GITHUB_TOKEN')}"
+    "Authorization": f"token {os.getenv('GITHUB_TOKEN')}",
+    "Accept": "application/vnd.github+json"
 }
+
+SCRAPE_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (VeriDexBot)"
+}
+
+def safe_json(res):
+    if not res.headers.get("Content-Type", "").startswith("application/json"):
+        raise RuntimeError(
+            f"Expected JSON, got {res.headers.get('Content-Type')} (status {res.status_code})"
+        )
+    return res.json()
 
 
 class GitHubEngine:
@@ -30,13 +42,13 @@ class GitHubEngine:
 
     def get_api_user(self, username):
         url = f"https://api.github.com/users/{username}"
-        res = requests.get(url, headers=HEADERS)
+        res = requests.get(url, headers=API_HEADERS)
         if res.status_code != 200:
             raise Exception("GitHub API unreachable or user not found")
-        return res.json()
+        return safe_json(res)
 
     def fetch_profile(self):
-        res = requests.get(self.url, headers=HEADERS)
+        res = requests.get(self.url, headers=SCRAPE_HEADERS)
         if res.status_code != 200:
             raise Exception("GitHub profile not reachable")
         self.profile_html = res.text
